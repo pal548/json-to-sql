@@ -3,17 +3,15 @@ package ru.pavel.testjsontosql;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.sun.xml.internal.ws.addressing.WsaActionUtil;
+import ru.pavel.testjsontosql.dto.Coordinate;
 import ru.pavel.testjsontosql.dto.Feature;
 import ru.pavel.testjsontosql.dto.Geometry;
 import ru.pavel.testjsontosql.dto.MainElement;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.sql.SQLOutput;
+import java.util.*;
 
 public class Main {
 
@@ -26,7 +24,7 @@ public class Main {
 
 
         JsonFactory jfactory = new JsonFactory();
-        try (JsonParser jParser = jfactory.createParser(new File("C:/Users/1/Downloads/citylots.json"))) {
+        try (JsonParser jParser = jfactory.createParser(new File("C:/Users/1/Downloads/citylots-small.json"))) {
             String parsedName = null;
             Integer parsedAge = null;
             List<Feature> features = new LinkedList<>();
@@ -47,6 +45,7 @@ public class Main {
                     }
                 }
             }
+            features.forEach(System.out::println);
             System.out.println("total features: " + features.size());
         }
     }
@@ -56,7 +55,6 @@ public class Main {
         Map<String, String> propertiesMap = null;
         Geometry geometry = null;
         while (jParser.nextToken() != JsonToken.END_OBJECT) {
-            //System.out.println(jParser.getCurrentToken() + " " + jParser.getText());
             String parsedName = jParser.getText();
             switch (parsedName) {
                 case "type":
@@ -76,13 +74,41 @@ public class Main {
     }
 
     private static Geometry parseGeometry(JsonParser jParser) throws IOException {
+        String type = null;
+        List<Coordinate> coordinates = null;
         while (jParser.nextToken() != JsonToken.END_OBJECT) {
             String parsedName = jParser.getText();
             switch (parsedName) {
                 case "type":
+                    jParser.nextToken();
+                    type = jParser.getText();
+                    break;
+                case "coordinates":
+                    if ("Polygon".equals(type)) { // пока не берём другие типы Geometry
+                        jParser.nextToken();
+                        coordinates = parseCoordinates(jParser);
+                    }
+                    break;
             }
         }
-        return null;
+        return new Geometry(type, coordinates);
+    }
+
+    private static List<Coordinate> parseCoordinates(JsonParser jParser) throws IOException {
+        List<Coordinate> res = new LinkedList<>();
+        while (jParser.nextToken() != JsonToken.END_ARRAY) {
+            while (jParser.nextToken() != JsonToken.END_ARRAY) {
+                while (jParser.nextToken() != JsonToken.END_ARRAY) {
+                    double x = jParser.getDoubleValue();
+                    jParser.nextToken();
+                    double y = jParser.getDoubleValue();
+                    jParser.nextToken();
+                    double z = jParser.getDoubleValue();
+                    res.add(new Coordinate(x, y, z));
+                }
+            }
+        }
+        return res;
     }
 
     private static Map<String, String> parseProperties(JsonParser jParser) throws IOException {
